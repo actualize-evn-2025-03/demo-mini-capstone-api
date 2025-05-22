@@ -1,13 +1,23 @@
 class ProductsController < ApplicationController
   def index
-    products = Product.all
+    @products = Product.all
 
-    render json: products
+    render :index
   end
 
   def show
-    product = Product.find(params["id"])
+    @product = Product.find(params["id"])
 
+    render :show
+  end
+
+  def create
+    product = Product.create(
+      name: params["name"],
+      price: params["price"],
+      image_url: params["image_url"],
+      description: params["description"]
+    )
     render json: product
   end
 end
