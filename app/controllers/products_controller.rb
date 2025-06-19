@@ -1,5 +1,8 @@
 class ProductsController < ApplicationController
   def index
+    puts "-------"
+    pp current_user
+    puts "-------"
     @products = Product.all
 
     render :index
