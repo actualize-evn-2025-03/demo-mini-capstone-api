@@ -1,82 +1,118 @@
 # db/seeds.rb
-puts "🌱  Seeding…"
+# ------------------------------------------------------------------
+# Populates:
+#   • 1 admin + 10 regular users
+#   • 3 suppliers
+#   • 10 categories
+#   • 50 products (each with 1-3 images and 1-3 categories)
+#   • 100 orders (random users & products, qty 1-5)
+#
+# Requires faker. If it isn’t in your Gemfile yet, add:
+#   gem "faker", "~> 3.4"
+# then: bundle install
+# ------------------------------------------------------------------
 
-# ---- Helpers --------------------------------------------------------------
+require "faker"
+require "bigdecimal/util"
 
-def cents(amount)
-  # Convert a String or Float in dollars (e.g. "2.99") to an Integer in cents
-  (BigDecimal(amount.to_s) * 100).to_i
+TAX_RATE = 0.05 # 5 %
+
+puts "\n🌱  Resetting tables…"
+[Image, CategoryProduct, Category, Order,
+ Product, Supplier, User].each(&:delete_all)
+
+# ---------------------------- Users -------------------------------
+puts "🔑  Creating users…"
+admin = User.create!(
+  name:  "Admin User",
+  email: "admin@example.com",
+  password:              "password",
+  password_confirmation: "password",
+  admin: true
+)
+
+10.times do
+  User.create!(
+    name:  Faker::Name.name,
+    email: Faker::Internet.unique.email,  # works on any Faker version
+    password:              "password",
+    password_confirmation: "password"
+  )
 end
 
-# ---- Wipe existing data ---------------------------------------------------
+# -------------------------- Suppliers -----------------------------
+puts "🏭  Creating suppliers…"
+3.times do
+  Supplier.create!(
+    name:         Faker::Company.unique.name,
+    email:        Faker::Internet.unique.email,
+    phone_number: Faker::PhoneNumber.phone_number
+  )
+end
+suppliers = Supplier.all
 
-Image.destroy_all
-Product.destroy_all
-Supplier.destroy_all
-
-# ---- Suppliers ------------------------------------------------------------
-
-amazon     = Supplier.create!(name: "Amazon",      email: "amazon@email.com",     phone_number: "243222342")
-think_geek = Supplier.create!(name: "Think Geek",  email: "thinkgeek@email.com",  phone_number: "5432534")
-
-# ---- Products + Images ----------------------------------------------------
-
-products = [
-  {
-    supplier: think_geek,
-    name: "WNYX Mug",
-    price: cents(2.99),
-    description: "Get your morning news once you wake up with a cup of joe from... well Joe. He made it with his homemade duct tape",
-    image_url: "http://s32.postimg.org/6mceui22t/wnyx_mug.png"
-  },
-  {
-    supplier: think_geek,
-    name: "Hitchhiker's Guide to the Galaxy",
-    price: cents(42.00),
-    description: "In many of the more relaxed civilizations on the Outer Eastern Rim of the Galaxy, the Hitch-Hiker's Guide has already supplanted the great Encyclopaedia Galactica as the standard repository of all knowledge and wisdom …",
-    image_url: "http://www.notcot.com/images/guide.gif"
-  },
-  {
-    supplier: think_geek,
-    name: "Lightsaber",
-    price: cents(270.10),
-    description: "Part laser, part samurai sword, all awesome. The lightsaber is an elegant weapon for a more civilized age, not nearly as clumsy as a blaster",
-    image_url: "http://25.media.tumblr.com/d2456964024018fd930338c099371104/tumblr_n2m73lTx2Q1svn82uo1_400.gif"
-  },
-  {
-    supplier: amazon,
-    name: "Space Cowboy Laser Gun",
-    price: cents(170.00),
-    description: "This weapon has no other description than, Shiny!",
-    image_url: "http://cdn.shopify.com/s/files/1/0289/1534/products/MalPistol_MP-1_1756x988_e53f9448-81ec-41de-9369-4cbad64f18f5_1024x1024.jpg?v=1401915776"
-  },
-  {
-    supplier: think_geek,
-    name: "DnD Dice set",
-    price: cents(57.50),
-    description: "Take down mighty dragons with this timeless set of 20-sided wonders",
-    image_url: "https://s-media-cache-ak0.pinimg.com/736x/9c/15/7b/9c157bea5331463f9c539cbce739a4b8.jpg"
-  },
-  {
-    supplier: amazon,
-    name: "Sonic Screwdriver",
-    price: cents(9.99),
-    description: "The Doctor's science-y magic wand to get out of tight spots. Note: does not work on wood",
-    image_url: "https://sketchfab.com/blogs/community/wp-content/uploads/2020/04/image2-2.jpg"
-  },
-  {
-    supplier: think_geek,
-    name: "Yoda sleeping bag",
-    price: cents(40.00),
-    description: "For real",
-    image_url: "https://staticdelivery.nexusmods.com/mods/1151/images/12353-0-1461721930.png"
-  }
+# -------------------------- Categories ----------------------------
+puts "🏷️   Creating categories…"
+category_names = %w[
+  Apparel Electronics Books Home Beauty Toys
+  Sports Grocery Automotive Garden
 ]
+categories = category_names.map { |n| Category.create!(name: n) }
 
-products.each do |attrs|
-  img_url = attrs.delete(:image_url)
-  product = Product.create!(attrs)
-  Image.create!(url: img_url, product: product)
+# --------------------------- Products -----------------------------
+puts "📦  Creating products, images & tags…"
+50.times do
+  product = Product.create!(
+    name:        Faker::Commerce.unique.product_name,
+    description: Faker::Lorem.sentence(word_count: 12),
+    price:       Faker::Commerce.price(range: 5..200).round, # integer dollars
+    supplier:    suppliers.sample
+  )
+
+  # 1-3 placeholder images
+  rand(1..3).times do
+    Image.create!(
+      url: "https://picsum.photos/seed/#{SecureRandom.hex(4)}/400/400",
+      product: product
+    )
+  end
+
+  # tag with 1-3 categories
+  categories.sample(rand(1..3)).each do |cat|
+    CategoryProduct.create!(product: product, category: cat)
+  end
+end
+products = Product.all
+
+# ---------------------------- Orders ------------------------------
+puts "🧾  Creating orders…"
+users = User.where(admin: false)
+
+100.times do
+  product  = products.sample
+  quantity = rand(1..5)
+  subtotal = (product.price * quantity).to_d
+  tax      = (subtotal * TAX_RATE).round(2)
+  total    = subtotal + tax
+
+  Order.create!(
+    user:     users.sample,
+    product:  product,
+    quantity: quantity,
+    subtotal: subtotal,
+    tax:      tax,
+    total:    total
+  )
 end
 
-puts "✅  Done!"
+# --------------------------- Summary ------------------------------
+puts "\n✅  Seeding complete!"
+puts "   Users:      #{User.count} (#{User.where(admin: true).count} admin)"
+puts "   Suppliers:  #{Supplier.count}"
+puts "   Categories: #{Category.count}"
+puts "   Products:   #{Product.count}"
+puts "   Images:     #{Image.count}"
+puts "   Orders:     #{Order.count}"
+
+# If you ever need to reuse Faker’s unique generators elsewhere:
+#   Faker::UniqueGenerator.clear
