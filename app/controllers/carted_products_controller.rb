@@ -1,8 +1,8 @@
 class CartedProductsController < ApplicationController
   def index
-    @carted_products = current_user.carted_products.where(status: "carted")
+    @carted_products = current_user.carted_products.where(status: "carted").includes(:product)
 
-    render json: @carted_products
+    render :index
   end
 
   def create
@@ -13,7 +13,7 @@ class CartedProductsController < ApplicationController
       status: "carted"
     )
 
-    render json: @carted_product
+    render :create
   end
 
   def destroy
