@@ -13,7 +13,7 @@ class CartedProductsController < ApplicationController
       status: "carted"
     )
 
-    render :create
+    render json: { message: "created" }
   end
 
   def destroy

@@ -2,11 +2,18 @@ class OrdersController < ApplicationController
   before_action :authenticate_user
 
   def index
-    @orders = current_user.orders
-    # The exact same thing, just different syntax
-    # @orders = Order.where(user_id: current_user.id)
+    # SLOW BUT EASIER TO READ VERSION:
+    # @orders = current_user.orders
+    # Rails will automatically load carted_products and products when accessed in the view
+    # But it makes separate database queries for each order's items (N+1 query problem)
+    
+    # FAST BUT MORE COMPLEX VERSION:
+    # .includes(carted_products: :product) tells Rails to load the orders AND their associated carted_products AND each carted_product's product in one efficient database query
+    # Without this, Rails would make separate queries for each order's items (N+1 query problem)
+    # With this, Rails loads everything at once, making it much faster
+    @orders = current_user.orders.includes(carted_products: :product)
 
-    render json: @orders
+    render :index
   end
 
   def create
