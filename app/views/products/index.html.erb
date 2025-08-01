@@ -1,0 +1,10 @@
+<h1>All Products</h1>
+<h2>Name: <%= @products[1].name %></h2>
+<p>Price: <%= @products[1].price %></p>
+<p>Description: <%= @products[1].description %></p>
+
+<% @products.each do |product| %>
+  <h2>Name: <%= product.name %></h2>
+  <p>Price: <%= product.price %></p>
+  <p>Description: <%= product.description %></p>
+<% end %>
